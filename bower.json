@@ -1,6 +1,6 @@
 {
   "name": "eq.js",
-  "version": "0.5.0",
+  "version": "1.7.0",
   "authors": [
     "Sam Richard <snugug@gmail.com>"
   ],
@@ -27,5 +27,8 @@
     "index.html",
     "package.json",
     "sass/style.scss"
-  ]
+  ],
+  "devDependencies": {
+    "polyfill-service": "git@github.com:Financial-Times/polyfill-service.git#~1.1.0"
+  }
 }

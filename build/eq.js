@@ -1,151 +1,271 @@
-//////////////////////////////
-// eq.js
-// The global eqjs object that contains all eq.js functionality.
-//
-// eqjs.nodes - List of all nodes to act upon when eqjs.states is called
-// eqjs.nodesLength - Number of nodes in eqjs.nodes
-//
-// eqjs.debounce - Debounce function, used for capturing multiple fires of an event like window.onresize
-// eqjs.refreshNodes - Call this function to refresh the list of nodes that eq.js should act on
-// eqjs.sortObj - Sorts a key: value object based on value
-// eqjs.states - Runs through all nodes in eqjs.nodes and determines their eq state
-//////////////////////////////
+/*
+ * The global eqjs object that contains all eq.js functionality.
+ *
+ * eqjs.nodes - List of all nodes to act upon when eqjs.states is called
+ * eqjs.nodesLength - Number of nodes in eqjs.nodes
+ *
+ * eqjs.refreshNodes - Call this function to refresh the list of nodes that eq.js should act on
+ * eqjs.sortObj - Sorts a key: value object based on value
+ * eqjs.query - Runs through all nodes and finds their widths and points
+ * eqjs.nodeWrites - Runs through all nodes and writes their eq status
+ */
 (function (eqjs) {
   'use strict';
 
   function EQjs() {
     this.nodes = [];
     this.eqsLength = 0;
+    this.widths = [];
+    this.points = [];
+    this.callback = undefined;
   }
 
-  //////////////////////////////
-  // Debounce
-  // Returns a function, that, as long as it continues to be invoked, will not be triggered. The function will be called after it stops being called for N milliseconds. If `immediate` is passed, trigger the function on the leading edge, instead of the trailing.
-  //////////////////////////////
-  EQjs.prototype.debounce = function (func, wait, immediate) {
-    var timeout;
-    return function () {
-      var context = this, args = arguments;
-      var later = function () {
-        timeout = null;
-        if (!immediate) {
-          func.apply(context, args);
-        }
-      };
-      var callNow = immediate && !timeout;
-      clearTimeout(timeout);
-      timeout = setTimeout(later, wait);
-      if (callNow) {
-        func.apply(context, args);
-      }
-    };
-  };
-
-  //////////////////////////////
-  // Refresh Nodes
-  // Refreshes the list of nodes for eqjs to work with
-  //////////////////////////////
-  EQjs.prototype.refreshNodes = function () {
-    EQjs.nodes = document.querySelectorAll('[eq-pts]');
-    EQjs.nodesLength = EQjs.nodes.length;
-  };
-
-  //////////////////////////////
-  // Sort Object
-  // Sorts a simple object (key: value) by value and returns a sorted object
-  //////////////////////////////
-  EQjs.prototype.sortObj = function (obj) {
-    var arr = [];
-    var rv = {};
-
-    for (var prop in obj) {
-      if (obj.hasOwnProperty(prop)) {
-        arr.push({
-          'key': prop,
-          'value': obj[prop]
-        });
-      }
+  /*
+   * Add event (cross browser)
+   * From http://stackoverflow.com/a/10150042
+   */
+  function addEvent(elem, event, fn) {
+    if (elem.addEventListener) {
+      elem.addEventListener(event, fn, false);
+    } else {
+      elem.attachEvent('on' + event, function () {
+        // set the this pointer same as addEventListener when fn is called
+        return (fn.call(elem, window.event));
+      });
     }
-    arr.sort(function (a, b) { return a.value - b.value; });
+  }
 
-    for (var i = 0; i < arr.length; i++) {
-      var item = arr[i];
-      rv[item.key] = item.value;
-    }
-    return rv;
+  /*
+   * Parse Before
+   *
+   * Reads `:before` content and splits it at the comma
+   * From http://jsbin.com/ramiguzefiji/1/edit?html,css,js,output
+   */
+  function parseBefore(elem) {
+    return window.getComputedStyle(elem, ':before').getPropertyValue('content').slice(1, -1);
+  }
+
+  /*
+   * Merges two node lists together.
+   *
+   * From http://stackoverflow.com/questions/914783/javascript-nodelist/17262552#17262552
+   */
+  var mergeNodes = function(a, b) {
+    return [].slice.call(a).concat([].slice.call(b));
   };
 
-  //////////////////////////////
-  // Element States
-  // This function will run through all nodes that have Element Query points, will determine their width, then determine what state should apply.
-  //////////////////////////////
-  EQjs.prototype.states = function () {
-    // Read offset width of all nodes
-    var width = [], eqPtsValues = [], eqPts, i;
+  /*
+   * Query
+   *
+   * Reads nodes and finds the widths/points
+   *  nodes - optional, an array or NodeList of nodes to query
+   *  callback - Either boolean (`true`/`false`) to force a normal callback, or a function to use as a callback once query and nodeWrites have finished.
+   */
+  EQjs.prototype.query = function (nodes, callback) {
+    var proto = Object.getPrototypeOf(eqjs);
+    var length;
 
-    for (i = 0; i < EQjs.nodesLength; i++) {
-      width.push(EQjs.nodes[i].offsetWidth);
-      eqPts = {};
+    if (callback && typeof(callback) === 'function') {
+      proto.callback = callback;
+    }
+
+    if (nodes && typeof(nodes) !== 'number') {
+      length = nodes.length;
+    }
+    else {
+      nodes = proto.nodes;
+      length = proto.nodesLength;
+    }
+    var widths = [], points = [], i;
+
+    for (i = 0; i < length; i++) {
+      widths.push(nodes[i].offsetWidth);
       try {
-        eqPts = JSON.parse(EQjs.nodes[i].getAttribute('eq-pts'));
-        eqPtsValues.push(eqPts);
+        points.push(proto.sortObj(nodes[i].getAttribute('data-eq-pts')));
       }
       catch (e) {
-        console.log('Invalid JSON. Remember to wrap your attribute in single quotes (\') and your keys in double quotes (")');
+        try {
+          points.push(proto.sortObj(parseBefore(nodes[i])));
+        }
+        catch (e2) {
+          points.push([{
+            key: '',
+            value: 0
+          }]);
+        }
       }
     }
 
-    // Update nodes
-    for (i = 0; i < EQjs.nodesLength; i++) {
+    proto.widths = widths;
+    proto.points = points;
+
+    if (nodes && typeof(nodes) !== 'number') {
+      proto.nodeWrites(nodes, widths, points);
+    }
+    else if (callback && typeof(callback) !== 'function') {
+      proto.nodeWrites();
+    }
+    else {
+      window.requestAnimationFrame(proto.nodeWrites);
+    }
+  };
+
+  /*
+   * NodeWrites
+   *
+   * Writes the data attribute to the object
+   *  nodes - optional, an array or NodeList of nodes to query
+   *  widths - optional, widths of nodes to use. Only used if `nodes` is passed in
+   *  points - optional, points of nodes to use. Only used if `nodes` is passed in
+   */
+  EQjs.prototype.nodeWrites = function (nodes) {
+    var i,
+    j,
+    k,
+    length,
+    callback,
+    proto = Object.getPrototypeOf(eqjs),
+    widths = proto.widths,
+    points = proto.points,
+    state = '';
+
+    if (nodes && typeof(nodes) !== 'number') {
+      length = nodes.length;
+    }
+    else {
+      nodes = proto.nodes;
+      length = proto.nodesLength;
+    }
+
+    for (i = 0; i < length; i++) {
       // Set object width to found width
-      var objWidth = width[i];
-      var obj = EQjs.nodes[i];
-      eqPts = eqPtsValues[i];
+      var objWidth = widths[i];
+      var obj = nodes[i];
+      var eqPts = points[i];
+      var eqStates = [];
 
       // Get keys for states
-      var eqStates = Object.keys(eqPts);
-      var eqPtsLength = eqStates.length;
-
-      // Get first and last key
-      var firstKey = eqStates[0];
-      var lastKey = eqStates[eqPtsLength - 1];
+      var eqPtsLength = eqPts.length;
 
       // Be greedy for smallest state
-      if (objWidth < eqPts[firstKey]) {
-        obj.removeAttribute('eq-state');
+      if (objWidth < eqPts[0].value) {
+        obj.removeAttribute('data-eq-state');
       }
       // Be greedy for largest state
-      else if (objWidth >= eqPts[lastKey]) {
-        obj.setAttribute('eq-state', lastKey);
+      else if (objWidth >= eqPts[eqPtsLength - 1].value) {
+        for (k = 0; k < eqPtsLength; k++) {
+          eqStates.push(eqPts[k].key);
+        }
+        obj.setAttribute('data-eq-state', eqStates.join(' '));
       }
       // Traverse the states if not found
       else {
-        for (var j = 0; j < eqPtsLength; j++) {
-          var thisKey = eqStates[j];
-          var nextKey = eqStates[j + 1];
+        for (j = 0; j < eqPtsLength; j++) {
+          var current = eqPts[j];
+          var next = eqPts[j + 1];
+          eqStates.push(current.key);
 
-          if (j === 0 && objWidth < eqPts[thisKey]) {
-            obj.removeAttribute('eq-state');
+          if (j === 0 && objWidth < current.value) {
+            obj.removeAttribute('data-eq-state');
             break;
           }
 
-          if (nextKey === undefined) {
-            obj.setAttribute('eq-state', thisKey);
+          if (next.value === undefined) {
+            eqStates.push(next.key);
+            obj.setAttribute('data-eq-state', eqStates.join(' '));
             break;
           }
 
-          if (objWidth >= eqPts[thisKey] && objWidth < eqPts[nextKey]) {
-            obj.setAttribute('eq-state', thisKey);
+          if (objWidth >= current.value && objWidth < next.value) {
+            obj.setAttribute('data-eq-state', eqStates.join(' '));
             break;
           }
         }
       }
     }
+
+    // Run Callback
+    if (proto.callback) {
+      callback = proto.callback;
+      proto.callback = undefined;
+      callback(nodes);
+    }
   };
 
-  // We only ever want there to be
-  // one instance of EQjs in an app
+  /*
+   * Refresh Nodes
+   * Refreshes the list of nodes for eqjs to work with
+   */
+  EQjs.prototype.refreshNodes = function () {
+    var proto = Object.getPrototypeOf(eqjs),
+        cssNodes = [];
+
+    proto.nodes = document.querySelectorAll('[data-eq-pts]');
+
+    cssNodes = parseBefore(document.querySelector('html')).split(', ');
+    cssNodes.forEach(function (v) {
+      if (v !== '') {
+        proto.nodes = mergeNodes(proto.nodes, document.querySelectorAll(v));
+      }
+    });
+
+
+    proto.nodesLength = proto.nodes.length;
+  };
+
+  /*
+   * Sort Object
+   * Sorts a simple object (key: value) by value and returns a sorted object
+   */
+  EQjs.prototype.sortObj = function (obj) {
+    var arr = [];
+
+    var objSplit = obj.split(',');
+
+    for (var i = 0; i < objSplit.length; i++) {
+      var sSplit = objSplit[i].split(':');
+      arr.push({
+        'key': sSplit[0].replace(/^\s+|\s+$/g, ''),
+        'value': parseFloat(sSplit[1])
+      });
+    }
+
+    return arr.sort(function (a, b) { return a.value - b.value; });
+  };
+
+  /*
+   * We only ever want there to be
+   * one instance of EQjs in an app
+   */
   eqjs = eqjs || new EQjs();
+
+  /*
+   * Document Loaded
+   *
+   * Fires on document load; for HTML based EQs
+   */
+  addEvent(window, 'DOMContentLoaded', function () {
+    eqjs.refreshNodes();
+    eqjs.query(undefined, true);
+  });
+
+  /*
+   * Window Loaded
+   */
+  addEvent(window, 'load', function () {
+    eqjs.refreshNodes();
+    eqjs.query(undefined, true);
+  });
+
+  /*
+   * Window Resize
+   *
+   * Loop over each `eq-pts` element and pass to eqState
+   */
+  addEvent(window, 'resize', function () {
+    eqjs.refreshNodes();
+    window.requestAnimationFrame(eqjs.query);
+  });
 
   // Expose 'eqjs'
   if (typeof module !== 'undefined' && module.exports) {
@@ -157,30 +277,4 @@
   } else {
     window.eqjs = eqjs;
   }
-})(window.eqjs);
-
-(function (eqjs) {
-  //////////////////////////////
-  // Window Load
-  //
-  // Grab all DOM elements with an `eq-pts` attribute
-  // Find how many items there are
-  // Save both to annon-scoped variables
-  //
-  // Loop over each and pass to eqState
-  //////////////////////////////
-  window.onload = function () {
-    eqjs.refreshNodes();
-
-    eqjs.states();
-  };
-
-  //////////////////////////////
-  // Window Resize
-  //
-  // Loop over each `eq-pts` element and pass to eqState
-  //////////////////////////////
-  window.onresize = eqjs.debounce(function () {
-    eqjs.states();
-  }, 20);
 })(window.eqjs);
