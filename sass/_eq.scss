@@ -114,9 +114,9 @@ $EQ-Selectors: ();
 //
 // Prints list of selectors that were called for CSS element queries to HTML's `:before`
 //////////////////////////////
-@mixin eq-selectors {
+@mixin eq-selectors($selector: html) {
   @at-root {
-    html:before {
+    #{$selector}:before {
       display: none;
       content: '#{$EQ-Selectors}';
     }
