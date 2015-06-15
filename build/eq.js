@@ -18,6 +18,7 @@
     this.widths = [];
     this.points = [];
     this.callback = undefined;
+    this.storageElementSelector = 'html';
   }
 
   /*
@@ -198,17 +199,21 @@
    */
   EQjs.prototype.refreshNodes = function () {
     var proto = Object.getPrototypeOf(eqjs),
-        cssNodes = [];
+        cssNodes = [],
+        storageElement;
 
     proto.nodes = document.querySelectorAll('[data-eq-pts]');
 
-    cssNodes = parseBefore(document.querySelector('html')).split(', ');
-    cssNodes.forEach(function (v) {
-      if (v !== '') {
-        proto.nodes = mergeNodes(proto.nodes, document.querySelectorAll(v));
-      }
-    });
+    storageElement = document.querySelector(this.storageElementSelector);
 
+    if (storageElement !== null) {
+      cssNodes = parseBefore(document.querySelector(this.storageElementSelector)).split(', ');
+      cssNodes.forEach(function (v) {
+        if (v !== '') {
+          proto.nodes = mergeNodes(proto.nodes, document.querySelectorAll(v));
+        }
+      });
+    }
 
     proto.nodesLength = proto.nodes.length;
   };
@@ -232,6 +237,18 @@
 
     return arr.sort(function (a, b) { return a.value - b.value; });
   };
+
+  /**
+   * Updates the selector of the element that stores eq-selectors
+   * in a pseudo element
+   * @author filmic (me@filmic.eu)
+   * @param  {String} selector CSS selector of the storage element
+   */
+  EQjs.prototype.setStorageElementSelector = function (selector) {
+      this.storageElementSelector = selector;
+      this.refreshNodes();
+      this.query(undefined, true);
+  }
 
   /*
    * We only ever want there to be
