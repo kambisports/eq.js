@@ -43,7 +43,9 @@
    * From http://jsbin.com/ramiguzefiji/1/edit?html,css,js,output
    */
   function parseBefore(elem) {
-    return window.getComputedStyle(elem, ':before').getPropertyValue('content').slice(1, -1);
+    var content = window.getComputedStyle(elem, ':before').getPropertyValue('content'),
+        contentNormalized = content.replace(/["']/g, ''); //handle double quoted (Safari) and single quoted (Chrome) content value
+    return contentNormalized;
   }
 
   /*
@@ -223,6 +225,10 @@
    * Sorts a simple object (key: value) by value and returns a sorted object
    */
   EQjs.prototype.sortObj = function (obj) {
+    if (!obj || obj === 'none') {
+      throw 'Invalid object'
+    }
+    
     var arr = [];
 
     var objSplit = obj.split(',');
