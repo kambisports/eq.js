@@ -40,7 +40,8 @@ $EQ-Selectors: ();
     }
     @each $state in $states {
       &[data-eq-state$="#{$state}"] {
-        @extend %#{$extend};
+        //@extend %#{$extend}; // causes issues (wrong selectors) on Linux/Mac
+        @content;
       }
     }
   }
@@ -78,13 +79,15 @@ $EQ-Selectors: ();
       }
 
       &#{$stateApply} {
-        @extend %#{$extend};
+        //@extend %#{$extend}; // causes issues (wrong selectors) on Linux/Mac
+        @content;
       }
     }
     @else {
       @each $state in $states {
         &[data-eq-state~="#{$state}"] {
-          @extend %#{$extend};
+          //@extend %#{$extend}; // causes issues (wrong selectors) on Linux/Mac
+          @content;
         }
       }
     }
