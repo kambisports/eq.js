@@ -120,6 +120,21 @@ module.exports = function (gulp, distPaths, outPath) {
       .pipe(gulp.dest(outPath));
   });
 
+  gulp.task('dist:polyfill-unmin', function () {
+    var polyfills = buildPolyfill();
+
+    distPaths = distPaths || toDist;
+    outPath = outPath || placeDist;
+
+    return gulp.src(distPaths)
+      .pipe(insert.prepend(polyfills))
+      .pipe(insert.prepend('/*! eq.js (with polyfills) v' + tag + ' (c) ' + year + ' Sam Richard with thanks to the Financial Times, MIT license */\n'))
+      .pipe(rename({
+        extname: '.polyfilled.js'
+      }))
+      .pipe(gulp.dest(outPath));
+  });
+
   //////////////////////////////
   // Generate just the polyfills
   //////////////////////////////
@@ -150,7 +165,7 @@ module.exports = function (gulp, distPaths, outPath) {
   //////////////////////////////
   gulp.task('dist', function (cb) {
     return sequence(
-      ['dist:core', 'dist:polyfill', 'dist:polyfills'],
+      ['dist:core', 'dist:polyfill', 'dist:polyfill-unmin', 'dist:polyfills'],
       'dist:gzip',
       cb
     );
