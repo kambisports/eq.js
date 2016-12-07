@@ -141,6 +141,11 @@
       length = proto.nodesLength;
     }
 
+    // Callback needs to be set before the dispatchEvent.
+    // Multiple calls to nodeWrites will otherwise reset callback. 
+    // @author verivh
+    callback = proto.callback;
+
     for (i = 0; i < length; i++) {
       // Set object width to found width
       var objWidth = widths[i];
@@ -200,8 +205,7 @@
     }
 
     // Run Callback
-    if (proto.callback) {
-      callback = proto.callback;
+    if (callback) {
       proto.callback = undefined;
       callback(nodes);
     }
