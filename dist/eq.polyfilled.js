@@ -1,4 +1,4 @@
-/*! eq.js (with polyfills) v1.7.0 (c) 2013-2015 Sam Richard with thanks to the Financial Times, MIT license */
+/*! eq.js (with polyfills) v1.7.0 (c) 2013-2016 Sam Richard with thanks to the Financial Times, MIT license */
 (function () {if (!('getPrototypeOf' in Object
 )){Object.getPrototypeOf = function getPrototypeOf(object) {
 	if (object !== Object(object)) {
@@ -389,6 +389,11 @@ CustomEvent.prototype = Event.prototype;
       length = proto.nodesLength;
     }
 
+    // Callback needs to be set before the dispatchEvent.
+    // Multiple calls to nodeWrites will otherwise reset callback. 
+    // @author verivh
+    callback = proto.callback;
+
     for (i = 0; i < length; i++) {
       // Set object width to found width
       var objWidth = widths[i];
@@ -448,8 +453,7 @@ CustomEvent.prototype = Event.prototype;
     }
 
     // Run Callback
-    if (proto.callback) {
-      callback = proto.callback;
+    if (callback) {
       proto.callback = undefined;
       callback(nodes);
     }
